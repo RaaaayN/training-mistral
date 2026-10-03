@@ -50,8 +50,8 @@ Ouverture : « Un bug rend le retrieval faux, un bug de métadonnées est silenc
 ## PR 4 : Transformer (`src/transformer_block.py`)
 Ouverture : « Une loss à 0.02 après 200 steps est un symptôme : le modèle triche (fuite du futur + bugs de tenseurs). »
 
-1. **Aucun masque causal** : `TinyLM.forward` n'en passe pas, chaque position voit le futur, loss triviale. Masque triangulaire inférieur.
-2. **Pas de décalage next-token dans la loss** : `logits[t]` vs `ids[t]`, le modèle apprend à copier. `logits[:, :-1]` contre `ids[:, 1:]`.
+1. **Pas de décalage next-token dans la loss** : `logits[t]` est comparé à `ids[t]`, l'entrée elle-même, le modèle apprend à copier. C'est LA ligne qui fait tricher (loss 0.02). `logits[:, :-1]` contre `ids[:, 1:]`.
+2. **Aucun masque causal** : `TinyLM.forward` n'en passe pas. Latent aujourd'hui (l'attention ne mélange pas les tokens, cf. point 5), mais une fois les têtes corrigées chaque position voit le futur. Masque triangulaire inférieur.
 3. **`masked_fill(mask == 0, 0.0)`** : doit être `-inf`, sinon les positions masquées gardent du poids après softmax.
 4. **`softmax(dim=1)`** : mauvais axe, `dim=-1` (sur les clés).
 5. **Têtes mal formées** : `view(B, T, H, D)` sans `transpose(1, 2)` mélange têtes et temps. Passer en `(B, H, T, D)`, puis `transpose(1, 2).contiguous().view(B, T, C)`.
